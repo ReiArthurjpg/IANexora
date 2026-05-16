@@ -30,9 +30,15 @@ class DocumentSearchService
         $params = [];
 
         foreach ($keywords as $index => $keyword) {
-            $param = ':term' . $index;
-            $clauses[] = "(title LIKE {$param} OR content LIKE {$param} OR tags LIKE {$param})";
-            $params[$param] = '%' . $keyword . '%';
+            $paramTitle = ':term_t_' . $index;
+            $paramContent = ':term_c_' . $index;
+            $paramTags = ':term_tags_' . $index;
+            
+            $clauses[] = "(title LIKE {$paramTitle} OR content LIKE {$paramContent} OR tags LIKE {$paramTags})";
+            
+            $params[$paramTitle] = '%' . $keyword . '%';
+            $params[$paramContent] = '%' . $keyword . '%';
+            $params[$paramTags] = '%' . $keyword . '%';
         }
 
         $sql = 'SELECT id, title, content, tags, created_at FROM documents WHERE ' . implode(' OR ', $clauses) . ' ORDER BY updated_at DESC LIMIT :limit';

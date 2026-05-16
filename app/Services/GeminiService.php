@@ -31,8 +31,9 @@ class GeminiService implements AIService
         $prompt = "Contexto:\n{$context}\n\nPergunta do usuário:\n{$message}";
 
         try {
-            $response = $this->client->post("/v1beta/models/{$model}:generateContent", [
-                'query' => ['key' => $apiKey],
+            $url = "https://generativelanguage.googleapis.com/v1/models/{$model}:generateContent?key={$apiKey}";
+            
+            $response = $this->client->post($url, [
                 'json' => [
                     'contents' => [[
                         'parts' => [[

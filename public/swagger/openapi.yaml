@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: AI Knowledge Base API
+  title: IANexora
   version: 1.0.0
   description: API REST para gerenciamento de documentação técnica em Markdown com integração Gemini.
 servers:

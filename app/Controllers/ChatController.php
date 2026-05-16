@@ -29,6 +29,7 @@ class ChatController
             'context_documents' => array_column($documents, 'id'),
             'answer' => $aiResult['answer'] ?? 'Sem resposta.',
             'provider' => $aiResult['provider'] ?? 'gemini',
+            'error' => $aiResult['error'] ?? null,
         ]);
     }
 
