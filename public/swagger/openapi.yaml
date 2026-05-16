@@ -1,0 +1,120 @@
+openapi: 3.0.3
+info:
+  title: AI Knowledge Base API
+  version: 1.0.0
+  description: API REST para gerenciamento de documentação técnica em Markdown com integração Gemini.
+servers:
+  - url: http://localhost/IANexora/public
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      description: Retorna status da API.
+      responses:
+        '200':
+          description: API online
+          content:
+            application/json:
+              example:
+                success: true
+                message: API online.
+                data:
+                  status: ok
+  /api/documents/upload:
+    post:
+      summary: Upload de documento Markdown
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Documento enviado
+  /api/documents:
+    get:
+      summary: Listar documentos
+      responses:
+        '200':
+          description: Lista de documentos
+  /api/documents/{id}:
+    get:
+      summary: Buscar documento por ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Documento encontrado
+        '404':
+          description: Não encontrado
+    delete:
+      summary: Remover documento
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Documento removido
+  /api/chat:
+    post:
+      summary: Chat contextual com Gemini
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+            example:
+              message: Onde fica o botão de login?
+      responses:
+        '200':
+          description: Resposta da IA
+          content:
+            application/json:
+              example:
+                success: true
+                message: Resposta gerada com sucesso.
+                data:
+                  message: Onde fica o botão de login?
+                  context_documents: [1, 3]
+                  answer: O botão de login está no canto superior direito...
+                  provider: gemini
+components:
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          type: object
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: string

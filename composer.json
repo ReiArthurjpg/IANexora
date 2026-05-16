@@ -1,0 +1,20 @@
+{
+  "name": "ianexora/ai-knowledge-base-api",
+  "description": "API REST em PHP puro para gestão de documentação técnica com integração Gemini",
+  "type": "project",
+  "require": {
+    "php": "^8.1",
+    "guzzlehttp/guzzle": "^7.9",
+    "vlucas/phpdotenv": "^5.6"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    }
+  },
+  "scripts": {
+    "post-install-cmd": [
+      "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+    ]
+  }
+}
