@@ -1,0 +1,7 @@
+/vendor
+/.env
+/models.json
+/temp_req.json
+/list_models.php
+/storage/uploads/*
+!/storage/uploads/.gitkeep
