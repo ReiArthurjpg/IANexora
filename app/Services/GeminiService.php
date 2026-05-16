@@ -19,7 +19,7 @@ class GeminiService implements AIService
         ]);
     }
 
-    public function sendMessage(string $message, string $context): array
+    public function sendMessage(string $message, string $context, array $history = []): array
     {
         $apiKey = $_ENV['GEMINI_API_KEY'] ?? '';
         $model = $_ENV['GEMINI_MODEL'] ?? 'gemini-2.5-flash';
@@ -29,7 +29,23 @@ class GeminiService implements AIService
             return ['provider' => 'gemini', 'answer' => 'Gemini não configurado. Defina GEMINI_API_KEY no .env.'];
         }
 
+        // Monta os 'contents' incluindo o histórico
+        $contents = [];
+        
+        // Adiciona histórico anterior
+        foreach ($history as $chat) {
+            $contents[] = [
+                'role' => $chat['role'],
+                'parts' => [['text' => $chat['content']]]
+            ];
+        }
+
+        // Adiciona a pergunta atual com o contexto de documentos
         $prompt = "Contexto disponível:\n{$context}\n\nPergunta do usuário:\n{$message}";
+        $contents[] = [
+            'role' => 'user',
+            'parts' => [['text' => $prompt]]
+        ];
 
         try {
             $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
@@ -41,11 +57,7 @@ class GeminiService implements AIService
                             ['text' => $systemPrompt]
                         ]
                     ],
-                    'contents' => [[
-                        'parts' => [[
-                            'text' => $prompt,
-                        ]],
-                    ]],
+                    'contents' => $contents,
                 ],
             ]);
 
