@@ -20,9 +20,20 @@ class ChatController
             return;
         }
 
+        $sessionId = $payload['session_id'] ?? 'default_session';
+
+        $historyService = new \App\Services\ChatHistoryService();
+        $history = $historyService->getHistory($sessionId);
+
         $documents = DocumentSearchService::make()->search($message, 5);
         $context = $this->buildContext($documents);
-        $aiResult = (new GeminiService())->sendMessage($message, $context);
+        $aiResult = (new GeminiService())->sendMessage($message, $context, $history);
+
+        // Salva no histórico se a resposta for válida
+        if (!empty($aiResult['answer']) && ($aiResult['answer'] !== 'Falha na comunicação com Gemini.')) {
+            $historyService->save($sessionId, 'user', $message);
+            $historyService->save($sessionId, 'model', $aiResult['answer']);
+        }
 
         Response::success('Resposta gerada com sucesso.', [
             'message' => $message,
