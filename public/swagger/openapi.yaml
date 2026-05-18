@@ -4,7 +4,10 @@ info:
   version: 1.0.0
   description: API REST para gerenciamento de documentação técnica em Markdown com integração Gemini.
 servers:
+  - url: http://localhost:8082
+    description: Docker Local
   - url: http://localhost/IANexora/public
+    description: XAMPP Local
 paths:
   /api/health:
     get:
