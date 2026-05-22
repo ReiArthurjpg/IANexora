@@ -31,6 +31,10 @@ class ChatController
             return;
         }
 
+        $sessionId = $payload['session_id'] ?? 'default_session';
+        $historyService = new \App\Services\ChatHistoryService();
+        $history = $historyService->getHistory($sessionId);
+
         // Verifica se a mensagem é um comando de autenticação
         $authResult = $this->handleAuthCommand($message);
         if ($authResult !== null) {
@@ -38,9 +42,13 @@ class ChatController
             return;
         }
 
-        // Verifica se a mensagem é sobre autenticação
-        $authFallback = $this->getAuthIntentFallback($message);
+        // Verifica se a mensagem é sobre autenticação (passando histórico)
+        $authFallback = $this->getAuthIntentFallback($message, $history);
         if ($authFallback !== null) {
+            // Salva a interação no histórico para que possamos monitorar o contexto na próxima mensagem
+            $historyService->save($sessionId, 'user', $message);
+            $historyService->save($sessionId, 'model', $authFallback['answer']);
+
             Response::success('Resposta gerada com sucesso.', [
                 'message' => $message,
                 'context_documents' => [],
@@ -53,11 +61,6 @@ class ChatController
         }
 
         // Fluxo normal: envia para o Gemini com contexto de documentos
-        $sessionId = $payload['session_id'] ?? 'default_session';
-
-        $historyService = new \App\Services\ChatHistoryService();
-        $history = $historyService->getHistory($sessionId);
-
         $documents = DocumentSearchService::make()->search($message, 5);
         $context = $this->buildContext($documents);
         $aiResult = (new GeminiService())->sendMessage($message, $context, $history);
@@ -185,42 +188,132 @@ class ChatController
     }
 
     /**
-     * Detecta se a mensagem do usuário é sobre autenticação e retorna
-     * as instruções curtas junto com a action para o front-end exibir o formulário nativo.
+     * Detecta se a mensagem do usuário é sobre login e retorna
+     * a resposta curta com a action para o front-end exibir o formulário nativo de login.
+     * Também detecta se o usuário optou pelo caminho da página padrão e devolve
+     * um guia de passo a passo em vez do formulário nativo.
      */
-    private function getAuthIntentFallback(string $message): ?array
+    private function getAuthIntentFallback(string $message, array $history = []): ?array
     {
         $msg = mb_strtolower($message);
 
-        $loginKeywords = ['login', 'entrar', 'acessar', 'logar', 'autenticar', 'fazer login'];
-        $signupKeywords = ['cadastrar', 'cadastro', 'criar conta', 'registrar', 'registro', 'nova conta', 'signup'];
-        $forgotKeywords = ['esqueci', 'recuperar senha', 'forgot', 'redefinir', 'resetar senha', 'perdi minha senha', 'reset'];
+        // 1. Detecção de Intenção Explícita para abrir o formulário no chat
+        if (preg_match('/(abrir|abra|mandar|manda|mande|quero|enviar|envie|mostrar|mostra|cade|cadê).*formul[aá]rio/iu', $msg) || 
+            preg_match('/login (no|pelo|por) (chat|caht)/iu', $msg) ||
+            preg_match('/entrar (no|pelo|por) (chat|caht)/iu', $msg) ||
+            preg_match('/(formulario|formulário) (de )?login/iu', $msg)) {
+            
+            return [
+                'answer' => "🔐 Aqui está o formulário de login para você acessar sua conta de forma rápida:",
+                'action' => 'show_login_form',
+            ];
+        }
 
-        foreach ($loginKeywords as $kw) {
-            if (str_contains($msg, $kw)) {
-                return [
-                    'answer' => "🔐 Aqui está o formulário de login para você acessar sua conta de forma rápida:",
-                    'action' => 'show_login_form'
-                ];
+        // 1.5 Detecção de Intenção Geral de Login para bypassar Gemini e exibir a oferta inicial
+        $isGeneralLogin = false;
+        $generalPatterns = [
+            '/fazer\s+(o\s+)?login/iu',
+            '/realiza[cç][ãa]o\s+de\s+login/iu',
+            '/realizar\s+login/iu',
+            '/como\s+(fazer\s+)?login/iu',
+            '/como\s+(eu\s+)?entrar/iu',
+            '/como\s+logar/iu',
+            '/quero\s+logar/iu',
+            '/onde\s+(fa[cç]o|fica|fazer)\s+login/iu',
+            '/onde\s+(fa[cç]o|fica|fazer)\s+o\s+bot[ãa]o/iu',
+            '/entrar\s+(na\s+)?conta/iu',
+            '/acessar\s+(a\s+)?conta/iu',
+            '/tela\s+de\s+login/iu',
+            '/p[aá]gina\s+de\s+login/iu',
+            '/bot[ãa]o\s+de\s+login/iu',
+            '/^login$/iu',
+            '/^entrar$/iu',
+            '/^logar$/iu',
+        ];
+
+        foreach ($generalPatterns as $pattern) {
+            if (preg_match($pattern, $msg)) {
+                $isGeneralLogin = true;
+                break;
             }
         }
 
-        foreach ($signupKeywords as $kw) {
-            if (str_contains($msg, $kw)) {
-                return [
-                    'answer' => "📝 Aqui está o formulário para você criar a sua conta na Nexora BJJ:",
-                    'action' => 'show_signup_form'
-                ];
+        if ($isGeneralLogin) {
+            return [
+                'answer' => "Você pode acessar a nossa **[Página de Login](/guest/login)** padrão ou, se preferir, posso abrir um formulário interativo diretamente aqui no chat para você entrar rapidamente. Deseja fazer o login por aqui pelo chat?",
+                'action' => null,
+            ];
+        }
+
+        // Verifica se a IA tinha acabado de oferecer o formulário de login no chat
+        $lastModelMsg = '';
+        if (!empty($history)) {
+            for ($i = count($history) - 1; $i >= 0; $i--) {
+                if ($history[$i]['role'] === 'model') {
+                    $lastModelMsg = mb_strtolower($history[$i]['content']);
+                    break;
+                }
             }
         }
 
-        foreach ($forgotKeywords as $kw) {
-            if (str_contains($msg, $kw)) {
-                return [
-                    'answer' => "📧 Esqueceu a senha? Sem problemas, preencha o campo abaixo para recuperá-la:",
-                    'action' => 'show_forgot_password_form'
-                ];
+        $aiOfferedLoginChat = $lastModelMsg !== '' && (
+            str_contains($lastModelMsg, 'login por aqui')
+            || str_contains($lastModelMsg, 'formulário de login')
+            || str_contains($lastModelMsg, 'formulario de login')
+            || str_contains($lastModelMsg, 'formulário interativo')
+            || str_contains($lastModelMsg, 'formulario interativo')
+            || str_contains($lastModelMsg, 'entrar rapidamente')
+            || str_contains($lastModelMsg, 'login pelo chat')
+            || str_contains($lastModelMsg, 'entrar por aqui')
+            || str_contains($lastModelMsg, 'deseja fazer o login por aqui')
+        );
+
+        // 2. Detecção de Resposta de Confirmação (Sim / Quero / Prosseguir) com base no histórico
+        $isConfirm = preg_match('/^(sim|quero|prosseguir|pode ser|abrir|mostrar|confirmar|claro|bora|ok|yes|aceito|desejo|perfeito|pode mandar|manda|gostaria)/iu', trim($msg)) ||
+                     preg_match('/fazer pelo (chat|caht)/iu', $msg) ||
+                     preg_match('/pelo (chat|caht)/iu', $msg) ||
+                     preg_match('/por aqui/iu', $msg);
+
+        if ($isConfirm && $aiOfferedLoginChat) {
+            return [
+                'answer' => "🔐 Aqui está o formulário de login para você acessar sua conta de forma rápida:",
+                'action' => 'show_login_form',
+            ];
+        }
+
+        // 3. Detecção de escolha pela rota da PÁGINA PADRÃO (recusa ao chat)
+        // Palavras-chave que indicam que o usuário quer ir pela tela/página normal
+        $pageKeywords = [
+            'não', 'nao', 'pelo site', 'pela página', 'pela pagina', 'pela tela',
+            'tela padrão', 'tela padrao', 'no site', 'página padrão', 'pagina padrao',
+            'caminho padrão', 'caminho padrao', 'acessar a página', 'acessar a tela',
+            'quero a página', 'quero a pagina', 'prefiro a página', 'prefiro a pagina',
+            'ir para a página', 'ir para a tela', 'abrir no site', 'outro caminho',
+            'outra forma', 'pela web', 'mostrar o caminho', 'mostra o caminho',
+        ];
+
+        $isPageChoice = false;
+        foreach ($pageKeywords as $kw) {
+            if ($msg === $kw || str_starts_with($msg, $kw . ' ') || str_ends_with($msg, ' ' . $kw) || str_contains($msg, $kw)) {
+                $isPageChoice = true;
+                break;
             }
+        }
+
+        if ($isPageChoice && $aiOfferedLoginChat) {
+            $appUrl = rtrim($_ENV['APP_FRONTEND_URL'] ?? '', '/');
+            $loginPath = '/guest/login';
+
+            return [
+                'answer' => "Claro, sem problema! 😊 Veja o caminho pela página padrão:\n\n"
+                    . "1. **Acesse a tela principal** da plataforma Nexora BJJ.\n"
+                    . "2. Você verá um botão de **\"Entrar\"** (ou Login) no topo da página — clique nele.\n"
+                    . "3. Você será redirecionado para a **[tela de login]({$loginPath})**.\n"
+                    . "4. Informe seu **e-mail** e **senha** e clique em **Entrar**.\n\n"
+                    . "Pronto! Você estará dentro da plataforma. 🥋\n\n"
+                    . "_Se precisar de ajuda em qualquer etapa, é só chamar aqui no chat!_",
+                'action' => 'page_redirect_guide',
+            ];
         }
 
         return null;
