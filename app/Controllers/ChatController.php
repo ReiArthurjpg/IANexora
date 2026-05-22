@@ -188,14 +188,24 @@ class ChatController
     }
 
     /**
-     * Detecta se a mensagem do usuário é sobre login e retorna
-     * a resposta curta com a action para o front-end exibir o formulário nativo de login.
+     * Detecta se a mensagem do usuário é sobre autenticação e retorna
+     * a resposta curta com a action para o front-end exibir o formulário nativo.
      * Também detecta se o usuário optou pelo caminho da página padrão e devolve
      * um guia de passo a passo em vez do formulário nativo.
      */
     private function getAuthIntentFallback(string $message, array $history = []): ?array {
 
         $msg = mb_strtolower($message);
+
+        // 1.1 Detecção de Intenção Explícita para abrir o formulário de recuperação de senha no chat
+        if (preg_match('/(abrir|abra|mandar|manda|mande|quero|enviar|envie|mostrar|mostra|esqueci|esqueceu).*formul[aá]rio.*(recuper|redefin|reset|senha)/iu', $msg)
+            || preg_match('/(recuperar|redefinir|resetar).*(senha).*(no|pelo|por).*(chat|caht)/iu', $msg)
+            || preg_match('/(formulario|formulário) (de )?(recupera[cç][aã]o|redefini[cç][aã]o|reset).*(senha)?/iu', $msg)) {
+            return [
+                'answer' => "📩 Aqui está o formulário para envio do link de recuperação de senha:",
+                'action' => 'show_forgot_password_form',
+            ];
+        }
 
         // 1.2 Detecção de Intenção Explícita para abrir o formulário de cadastro no chat
         if (preg_match('/(abrir|abra|mandar|manda|mande|quero|enviar|envie|mostrar|mostra|cade|cadê).*formul[aá]rio.*cadastr/iu', $msg) || 
@@ -294,6 +304,36 @@ class ChatController
             ];
         }
 
+        // 1.8 Detecção de Intenção Geral de recuperação de senha para bypassar Gemini e exibir a oferta inicial
+        $isGeneralForgot = false;
+        $generalForgotPatterns = [
+            '/esqueci\s+(a\s+)?senha/iu',
+            '/esqueci\s+minha\s+senha/iu',
+            '/recuperar\s+(a\s+)?senha/iu',
+            '/redefinir\s+(a\s+)?senha/iu',
+            '/reset(ar)?\s+(a\s+)?senha/iu',
+            '/n[aã]o\s+consigo\s+entrar/iu',
+            '/n[aã]o\s+lembro\s+(da\s+)?senha/iu',
+            '/link\s+de\s+recupera[cç][aã]o/iu',
+            '/p[aá]gina\s+de\s+(recupera[cç][aã]o|redefini[cç][aã]o)\s+de\s+senha/iu',
+            '/^recuperar senha$/iu',
+            '/^redefinir senha$/iu',
+        ];
+
+        foreach ($generalForgotPatterns as $pattern) {
+            if (preg_match($pattern, $msg)) {
+                $isGeneralForgot = true;
+                break;
+            }
+        }
+
+        if ($isGeneralForgot) {
+            return [
+                'answer' => "Você pode acessar a nossa **[Página de Recuperação de Senha](/guest/forgot-password)** padrão ou, se preferir, posso abrir um formulário interativo diretamente aqui no chat para enviar o link de recuperação. Deseja recuperar a senha por aqui pelo chat?",
+                'action' => null,
+            ];
+        }
+
         // Verifica se a IA tinha acabado de oferecer o formulário de login ou cadastro no chat
         $lastModelMsg = '';
         if (!empty($history)) {
@@ -326,6 +366,14 @@ class ChatController
             || str_contains($lastModelMsg, 'entrar por aqui')
             || str_contains($lastModelMsg, 'deseja fazer o login por aqui')
         );
+        $aiOfferedForgotChat = $lastModelMsg !== '' && (
+            str_contains($lastModelMsg, 'recuperação de senha')
+            || str_contains($lastModelMsg, 'recuperacao de senha')
+            || str_contains($lastModelMsg, 'recuperar a senha por aqui')
+            || str_contains($lastModelMsg, 'link de recuperação')
+            || str_contains($lastModelMsg, 'redefinir senha')
+            || str_contains($lastModelMsg, 'esqueci a senha')
+        );
 
 
         // Detect explicit user intent switches regardless of previous offers
@@ -344,6 +392,13 @@ class ChatController
             return [
                 'answer' => "🔐 Aqui está o formulário de login para você acessar sua conta de forma rápida:",
                 'action' => 'show_login_form',
+            ];
+        }
+        $userWantsForgot = preg_match('/\b(esqueci|recuperar|redefinir|resetar|reset)\b.*\b(senha)\b/iu', $msg);
+        if ($userWantsForgot) {
+            return [
+                'answer' => "📩 Aqui está o formulário para envio do link de recuperação de senha:",
+                'action' => 'show_forgot_password_form',
             ];
         }
 
@@ -365,6 +420,12 @@ class ChatController
                 return [
                     'answer' => "📝 Aqui está o formulário de cadastro para você criar sua conta de forma rápida:",
                     'action' => 'show_signup_form',
+                ];
+            }
+            if ($aiOfferedForgotChat) {
+                return [
+                    'answer' => "📩 Aqui está o formulário para envio do link de recuperação de senha:",
+                    'action' => 'show_forgot_password_form',
                 ];
             }
         }
@@ -426,6 +487,18 @@ class ChatController
                         . "3. Clique em **Cadastrar**.\n\n"
                         . "Pronto! Você poderá acessar a plataforma após o cadastro. 🥋\n\n"
                         . "_Se precisar de ajuda em qualquer etapa, é só chamar aqui no chat!_",
+                    'action' => 'page_redirect_guide',
+                ];
+            }
+            if ($aiOfferedForgotChat) {
+                $forgotPath = '/guest/forgot-password';
+                return [
+                    'answer' => "Claro, sem problema! 😊 Veja o caminho pela página padrão:\n\n"
+                        . "1. Acesse a **[página de recuperação de senha]({$forgotPath})**.\n"
+                        . "2. Informe o **e-mail** da sua conta.\n"
+                        . "3. Clique em **Enviar link de recuperação**.\n"
+                        . "4. Abra seu e-mail e siga o link para redefinir sua senha.\n\n"
+                        . "Pronto! Depois disso, você já pode voltar e fazer login normalmente. 🥋",
                     'action' => 'page_redirect_guide',
                 ];
             }
