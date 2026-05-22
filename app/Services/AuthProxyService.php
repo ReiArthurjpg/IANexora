@@ -13,7 +13,10 @@ class AuthProxyService
 
     public function __construct()
     {
-        $baseUrl = rtrim($_ENV['AUTH_API_URL'] ?? 'http://authnexora-web', '/');
+        $baseUrl = rtrim($_ENV['AUTH_API_URL'] ?? '', '/');
+        if (empty($baseUrl)) {
+            throw new \RuntimeException('A variável de ambiente AUTH_API_URL não está configurada no arquivo .env.');
+        }
         $this->client = new Client([
             'base_uri' => $baseUrl,
             'timeout' => 15,
