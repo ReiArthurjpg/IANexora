@@ -17,6 +17,17 @@ class Tester extends \App\Controllers\ChatController {
 $tester = new Tester();
 
 $testCases = [
+    // 0. Explicit request to open forgot-password form
+    [
+        'message' => 'quero recuperar senha pelo chat',
+        'history' => [],
+        'expected_action' => 'show_forgot_password_form',
+    ],
+    [
+        'message' => 'abrir formulario de recuperação de senha',
+        'history' => [],
+        'expected_action' => 'show_forgot_password_form',
+    ],
     // 1. Explicit request to open signup form
     [
         'message' => 'quero abrir o formulario de cadastro',
@@ -122,6 +133,30 @@ $testCases = [
             ['role' => 'model', 'content' => 'Você pode acessar a nossa Página de Cadastro padrão ou, se preferir, posso abrir um formulário de cadastro interativo diretamente aqui no chat para você criar sua conta rapidamente. Deseja realizar o cadastro por aqui pelo chat?']
         ],
         'expected_action' => 'show_signup_form',
+    ],
+    // 5. General forgot-password question should return offer text first
+    [
+        'message' => 'esqueci minha senha',
+        'history' => [],
+        'expected_action' => null,
+    ],
+    // 6. Confirmation for forgot-password form after offer
+    [
+        'message' => 'sim',
+        'history' => [
+            ['role' => 'user', 'content' => 'esqueci minha senha'],
+            ['role' => 'model', 'content' => 'Você pode acessar a nossa Página de Recuperação de Senha padrão ou, se preferir, posso abrir um formulário interativo diretamente aqui no chat para enviar o link de recuperação. Deseja recuperar a senha por aqui pelo chat?']
+        ],
+        'expected_action' => 'show_forgot_password_form',
+    ],
+    // 7. Choice for standard page in forgot-password flow
+    [
+        'message' => 'prefiro pelo site',
+        'history' => [
+            ['role' => 'user', 'content' => 'esqueci minha senha'],
+            ['role' => 'model', 'content' => 'Você pode acessar a nossa Página de Recuperação de Senha padrão ou, se preferir, posso abrir um formulário interativo diretamente aqui no chat para enviar o link de recuperação. Deseja recuperar a senha por aqui pelo chat?']
+        ],
+        'expected_action' => 'page_redirect_guide',
     ],
 ];
 
