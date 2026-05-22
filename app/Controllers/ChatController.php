@@ -369,19 +369,28 @@ class ChatController
             }
         }
 
-            // If the model previously offered login or signup and the user repeats or confirms without explicit confirmation keywords, handle it
-            if ($aiOfferedLoginChat) {
-                return [
-                    'answer' => "🔐 Aqui está o formulário de login para você acessar sua conta de forma rápida:",
-                    'action' => 'show_login_form',
-                ];
-            }
-            if ($aiOfferedSignupChat) {
-                return [
-                    'answer' => "📝 Aqui está o formulário de cadastro para você criar sua conta de forma rápida:",
-                    'action' => 'show_signup_form',
-                ];
-            }
+            // Não reabra formulário automaticamente sem confirmação explícita do usuário.
+            // Isso evita trocar indevidamente login/cadastro em mensagens fora de contexto.
+
+
+        $pageKeywords = [
+            'pagina',
+            'página',
+            'site',
+            'tela',
+            'prefiro pelo site',
+            'prefiro pela página',
+            'pela pagina',
+            'pela página',
+            'quero pela pagina',
+            'quero pela página',
+            'na pagina',
+            'na página',
+            'não, prefiro pelo site',
+            'nao prefiro chat',
+            'não prefiro chat',
+            'fora do chat',
+        ];
 
         $isPageChoice = false;
         foreach ($pageKeywords as $kw) {
