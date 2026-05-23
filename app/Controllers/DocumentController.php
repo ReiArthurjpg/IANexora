@@ -25,14 +25,21 @@ class DocumentController
             return;
         }
 
-        $maxSize = (int) ($_ENV['MAX_UPLOAD_SIZE'] ?? 5242880);
+        $maxSizeStr = $_ENV['MAX_UPLOAD_SIZE'] ?? '';
+        $uploadPath = $_ENV['UPLOAD_PATH'] ?? '';
+
+        if (empty($maxSizeStr) || empty($uploadPath)) {
+            throw new \RuntimeException('As configurações de upload (MAX_UPLOAD_SIZE, UPLOAD_PATH) não estão configuradas no arquivo .env.');
+        }
+
+        $maxSize = (int) $maxSizeStr;
         if ($file['size'] > $maxSize) {
             Response::error('Arquivo excede o tamanho máximo permitido.', ['file' => 'Limite de upload excedido.'], 422);
             return;
         }
 
         $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', basename($file['name']));
-        $targetDir = dirname(__DIR__, 2) . '/' . ($_ENV['UPLOAD_PATH'] ?? 'storage/uploads');
+        $targetDir = dirname(__DIR__, 2) . '/' . $uploadPath;
 
         if (!is_dir($targetDir)) {
             mkdir($targetDir, 0775, true);

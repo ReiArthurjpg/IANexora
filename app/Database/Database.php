@@ -17,18 +17,28 @@ class Database
             return self::$connection;
         }
 
+        $host = $_ENV['DB_HOST'] ?? '';
+        $port = $_ENV['DB_PORT'] ?? '';
+        $db = $_ENV['DB_DATABASE'] ?? '';
+        $username = $_ENV['DB_USERNAME'] ?? '';
+        $password = $_ENV['DB_PASSWORD'] ?? null;
+
+        if (empty($host) || empty($port) || empty($db) || empty($username) || $password === null) {
+            throw new \RuntimeException('As credenciais do banco de dados (DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD) não foram totalmente configuradas no arquivo .env.');
+        }
+
         $dsn = sprintf(
             'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $_ENV['DB_HOST'] ?? '127.0.0.1',
-            $_ENV['DB_PORT'] ?? '3306',
-            $_ENV['DB_DATABASE'] ?? 'ai_knowledge_base'
+            $host,
+            $port,
+            $db
         );
 
         try {
             self::$connection = new PDO(
                 $dsn,
-                $_ENV['DB_USERNAME'] ?? 'root',
-                $_ENV['DB_PASSWORD'] ?? '',
+                $username,
+                $password,
                 [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

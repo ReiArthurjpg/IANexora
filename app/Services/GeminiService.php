@@ -13,8 +13,12 @@ class GeminiService implements AIService
 
     public function __construct()
     {
+        $baseUri = rtrim($_ENV['GEMINI_BASE_URL'] ?? '', '/');
+        if (empty($baseUri)) {
+            throw new \RuntimeException('A variável de ambiente GEMINI_BASE_URL não está configurada no arquivo .env.');
+        }
         $this->client = new Client([
-            'base_uri' => rtrim($_ENV['GEMINI_BASE_URL'] ?? 'https://generativelanguage.googleapis.com', '/'),
+            'base_uri' => $baseUri,
             'timeout' => 30,
         ]);
     }
@@ -22,11 +26,17 @@ class GeminiService implements AIService
     public function sendMessage(string $message, string $context, array $history = []): array
     {
         $apiKey = $_ENV['GEMINI_API_KEY'] ?? '';
-        $model = $_ENV['GEMINI_MODEL'] ?? 'gemini-2.5-flash';
-        $systemPrompt = $_ENV['GEMINI_SYSTEM_PROMPT'] ?? 'Você é um assistente útil.';
+        $model = $_ENV['GEMINI_MODEL'] ?? '';
+        $systemPrompt = $_ENV['GEMINI_SYSTEM_PROMPT'] ?? '';
 
         if ($apiKey === '') {
             return ['provider' => 'gemini', 'answer' => 'Gemini não configurado. Defina GEMINI_API_KEY no .env.'];
+        }
+        if ($model === '') {
+            return ['provider' => 'gemini', 'answer' => 'Modelo Gemini não configurado. Defina GEMINI_MODEL no .env.'];
+        }
+        if ($systemPrompt === '') {
+            return ['provider' => 'gemini', 'answer' => 'System Prompt não configurado. Defina GEMINI_SYSTEM_PROMPT no .env.'];
         }
 
         // Monta os 'contents' incluindo o histórico
@@ -48,7 +58,8 @@ class GeminiService implements AIService
         ];
 
         try {
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
+            $baseUri = rtrim($_ENV['GEMINI_BASE_URL'] ?? '', '/');
+            $url = "{$baseUri}/v1beta/models/{$model}:generateContent?key={$apiKey}";
             
             $response = $this->client->post($url, [
                 'json' => [
