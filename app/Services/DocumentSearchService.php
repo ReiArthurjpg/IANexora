@@ -4,53 +4,55 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Database\Database;
-use PDO;
+use GuzzleHttp\Client;
+use Throwable;
 
 class DocumentSearchService
 {
-    public function __construct(private readonly PDO $db)
+    private Client $client;
+
+    public function __construct()
     {
+        $baseUri = rtrim($_ENV['BRAIN_API_URL'] ?? 'http://brainnexora-web', '/');
+        
+        $this->client = new Client([
+            'base_uri' => $baseUri,
+            'timeout' => 10,
+        ]);
     }
 
     public static function make(): self
     {
-        return new self(Database::connection());
+        return new self();
     }
 
     public function search(string $query, int $limit = 5): array
     {
-        $keywords = array_values(array_filter(preg_split('/\s+/', trim($query)) ?: []));
+        $keywords = array_values(array_filter(preg_split('/\s+/', trim(mb_strtolower($query))) ?: []));
 
         if ($keywords === []) {
             return [];
         }
 
-        $clauses = [];
-        $params = [];
+        try {
+            $response = $this->client->get('/', [
+                'query' => [
+                    'query' => $query,
+                    'limit' => $limit
+                ]
+            ]);
 
-        foreach ($keywords as $index => $keyword) {
-            $paramTitle = ':term_t_' . $index;
-            $paramContent = ':term_c_' . $index;
-            $paramTags = ':term_tags_' . $index;
+            $payload = json_decode((string) $response->getBody(), true);
             
-            $clauses[] = "(title LIKE {$paramTitle} OR content LIKE {$paramContent} OR tags LIKE {$paramTags})";
-            
-            $params[$paramTitle] = '%' . $keyword . '%';
-            $params[$paramContent] = '%' . $keyword . '%';
-            $params[$paramTags] = '%' . $keyword . '%';
+            if (is_array($payload)) {
+                return $payload;
+            }
+
+            return [];
+        } catch (Throwable $exception) {
+            // Se falhar a comunicação com o cérebro, retorna um array vazio ou loga o erro
+            error_log("Erro ao conectar no BrainNexora API: " . $exception->getMessage());
+            return [];
         }
-
-        $sql = 'SELECT id, title, content, tags, created_at FROM documents WHERE ' . implode(' OR ', $clauses) . ' ORDER BY updated_at DESC LIMIT :limit';
-        $stmt = $this->db->prepare($sql);
-
-        foreach ($params as $key => $value) {
-            $stmt->bindValue($key, $value, PDO::PARAM_STR);
-        }
-
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->execute();
-
-        return $stmt->fetchAll();
     }
 }
