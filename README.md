@@ -1,6 +1,6 @@
-# AI Knowledge Base API (PHP puro)
+# IANexora API (PHP puro)
 
-API REST profissional em **PHP 8+ sem framework** para armazenar documentos Markdown no MySQL, buscar contexto com SQL LIKE e preparar respostas via Gemini.
+API REST em **PHP 8+ sem framework** para chat com Gemini e integração de autenticação via comandos no chat.
 
 ## Stack
 - PHP 8+
@@ -29,11 +29,6 @@ Veja as pastas principais em `app/`, `public/`, `storage/` e `docs/`.
 - Inicie **Apache** e **MySQL** no painel do XAMPP.
 - Garanta que `mod_rewrite` esteja habilitado (opcional para evolução de rotas).
 
-## Banco de dados
-1. Abra `phpMyAdmin`.
-2. Importe `app/Database/migrations/001_create_documents.sql`.
-3. Isso cria o banco `ai_knowledge_base` e a tabela `documents`.
-
 ## Como rodar
 Acesse:
 - API: `http://localhost/IANexora/public`
@@ -45,10 +40,6 @@ Acesse a documentação:
 
 ## Endpoints v1
 - `GET /api/health`
-- `POST /api/documents/upload`
-- `GET /api/documents`
-- `GET /api/documents/{id}`
-- `DELETE /api/documents/{id}`
 - `POST /api/chat`
 
 ## Exemplo de chat
@@ -60,9 +51,6 @@ Request:
 ```
 
 ## Segurança aplicada
-- Prepared statements via PDO.
-- Upload validando extensão `.md`.
-- Sanitização do nome de arquivo.
 - Variáveis sensíveis via `.env`.
 
 ## Evoluções futuras
