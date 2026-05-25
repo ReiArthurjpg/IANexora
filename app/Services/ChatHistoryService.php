@@ -6,14 +6,21 @@ namespace App\Services;
 
 use App\Database\Database;
 use PDO;
+use Throwable;
 
 class ChatHistoryService
 {
-    private PDO $db;
+    private ?PDO $db = null;
 
     public function __construct()
     {
-        $this->db = Database::connection();
+        try {
+            $this->db = Database::connection();
+        } catch (Throwable) {
+            // Histórico opcional: se o banco estiver indisponível,
+            // a API de chat continua funcionando sem persistência.
+            $this->db = null;
+        }
     }
 
     /**
@@ -21,6 +28,10 @@ class ChatHistoryService
      */
     public function save(string $sessionId, string $role, string $content): void
     {
+        if (!$this->db instanceof PDO) {
+            return;
+        }
+
         // Limpa mensagens com mais de 24 horas antes de salvar a nova
         $this->clearOldHistory();
 
@@ -37,6 +48,10 @@ class ChatHistoryService
      */
     private function clearOldHistory(): void
     {
+        if (!$this->db instanceof PDO) {
+            return;
+        }
+
         $this->db->exec('DELETE FROM chat_history WHERE created_at < NOW() - INTERVAL 24 HOUR');
     }
 
@@ -45,6 +60,10 @@ class ChatHistoryService
      */
     public function getHistory(string $sessionId, int $limit = 10): array
     {
+        if (!$this->db instanceof PDO) {
+            return [];
+        }
+
         $stmt = $this->db->prepare('
             SELECT role, content 
             FROM chat_history 
