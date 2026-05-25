@@ -6,7 +6,7 @@ namespace App\Controllers;
 
 use App\Helpers\Response;
 use App\Services\AuthProxyService;
-use App\Services\DocumentSearchService;
+use App\Services\ChatHistoryService;
 use App\Services\GeminiService;
 
 class ChatController
@@ -32,7 +32,7 @@ class ChatController
         }
 
         $sessionId = $payload['session_id'] ?? 'default_session';
-        $historyService = new \App\Services\ChatHistoryService();
+        $historyService = new ChatHistoryService();
         $history = $historyService->getHistory($sessionId);
 
         // Verifica se a mensagem é um comando de autenticação
@@ -60,10 +60,8 @@ class ChatController
             return;
         }
 
-        // Fluxo normal: envia para o Gemini com contexto de documentos
-        $documents = DocumentSearchService::make()->search($message, 5);
-        $context = $this->buildContext($documents);
-        $aiResult = (new GeminiService())->sendMessage($message, $context, $history);
+        // Fluxo normal: envia para o Gemini sem contexto local de documentos
+        $aiResult = (new GeminiService())->sendMessage($message, '', $history);
 
         // Salva no histórico se a resposta for válida
         if (!empty($aiResult['answer']) && ($aiResult['answer'] !== 'Falha na comunicação com Gemini.')) {
@@ -73,7 +71,7 @@ class ChatController
 
         Response::success('Resposta gerada com sucesso.', [
             'message' => $message,
-            'context_documents' => array_column($documents, 'id'),
+            'context_documents' => [],
             'answer' => $aiResult['answer'] ?? 'Sem resposta.',
             'provider' => $aiResult['provider'] ?? 'gemini',
             'error' => $aiResult['error'] ?? null,
@@ -175,16 +173,6 @@ class ChatController
             . "📧 E-mail: **{$userEmail}**\n\n"
             . "Agora você pode fazer login usando o comando:\n"
             . "`LOGIN: {$userEmail} | sua_senha`";
-    }
-
-    private function buildContext(array $documents): string
-    {
-        $chunks = [];
-        foreach ($documents as $document) {
-            $chunks[] = "# {$document['title']}\n" . mb_substr((string) $document['content'], 0, 1500);
-        }
-
-        return implode("\n\n---\n\n", $chunks);
     }
 
     /**
@@ -375,6 +363,62 @@ class ChatController
             || str_contains($lastModelMsg, 'esqueci a senha')
         );
 
+
+        // Detect when user asks explanation/flow of the page instead of chat form
+        $isAskingHowPageWorks = preg_match('/(como\s+funciona|me\s+explica|explicar|passo\s+a\s+passo|onde\s+fica|qual\s+o\s+caminho).*(p[aá]gina|pagina|tela|site|bot[ãa]o)/iu', $msg);
+
+        if ($isAskingHowPageWorks) {
+            $asksLoginPage = preg_match('/(login|entrar|acessar)/iu', $msg);
+            $asksSignupPage = preg_match('/(cadastro|cadastrar|registrar|criar\s+conta)/iu', $msg);
+            $asksForgotPage = preg_match('/(esqueci|recuperar|redefinir|senha)/iu', $msg);
+
+            if ($asksLoginPage || $aiOfferedLoginChat) {
+                return [
+                    'answer' => "Claro! 😊 Funciona assim pela página padrão:
+
+"
+                        . "1. Acesse a tela principal da plataforma Nexora BJJ.
+"
+                        . "2. Clique no botão **Entrar** no topo da página.
+"
+                        . "3. Você será levado para **/guest/login**.
+"
+                        . "4. Preencha **e-mail** e **senha** e clique em **Entrar**.
+
+"
+                        . "Se quiser, também posso abrir o formulário de login aqui no chat.",
+                    'action' => 'page_redirect_guide',
+                ];
+            }
+
+            if ($asksSignupPage || $aiOfferedSignupChat) {
+                return [
+                    'answer' => "Claro! 😊 Pelo fluxo da página padrão:
+
+"
+                        . "1. Acesse **/guest/login/signup**.
+"
+                        . "2. Preencha Nome, E-mail, Academia, Senha e Confirmação.
+"
+                        . "3. Clique em **Cadastrar** para criar sua conta.",
+                    'action' => 'page_redirect_guide',
+                ];
+            }
+
+            if ($asksForgotPage || $aiOfferedForgotChat) {
+                return [
+                    'answer' => "Claro! 😊 Para recuperar senha pela página:
+
+"
+                        . "1. Acesse **/guest/forgot-password**.
+"
+                        . "2. Informe seu e-mail.
+"
+                        . "3. Envie o link e finalize a redefinição pelo e-mail.",
+                    'action' => 'page_redirect_guide',
+                ];
+            }
+        }
 
         // Detect explicit user intent switches regardless of previous offers
         $userWantsSignup = preg_match('/\b(cadastro|registrar|cadastrar|criar conta|registro)\b.*\b(aqui|chat|por aqui|agora|online)\b/iu', $msg);

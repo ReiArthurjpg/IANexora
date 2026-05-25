@@ -58,8 +58,7 @@ class GeminiService implements AIService
         ];
 
         try {
-            $baseUri = rtrim($_ENV['GEMINI_BASE_URL'] ?? '', '/');
-            $url = "{$baseUri}/v1beta/models/{$model}:generateContent?key={$apiKey}";
+            $url = "/v1beta/models/{$model}:generateContent?key={$apiKey}";
             
             $response = $this->client->post($url, [
                 'json' => [
@@ -75,7 +74,7 @@ class GeminiService implements AIService
             $payload = json_decode((string) $response->getBody(), true);
             $answer = $payload['candidates'][0]['content']['parts'][0]['text'] ?? 'Sem resposta do modelo.';
 
-            return ['provider' => 'gemini', 'answer' => $answer, 'raw' => $payload];
+            return ['provider' => 'gemini', 'answer' => $answer];
         } catch (Throwable $exception) {
             return ['provider' => 'gemini', 'answer' => 'Falha na comunicação com Gemini.', 'error' => $exception->getMessage()];
         }
