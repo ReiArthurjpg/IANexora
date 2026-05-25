@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Helpers\Response;
 use App\Services\AuthProxyService;
+use App\Services\ChatHistoryService;
 use App\Services\DocumentSearchService;
 use App\Services\GeminiService;
 
@@ -32,7 +33,7 @@ class ChatController
         }
 
         $sessionId = $payload['session_id'] ?? 'default_session';
-        $historyService = new \App\Services\ChatHistoryService();
+        $historyService = new ChatHistoryService();
         $history = $historyService->getHistory($sessionId);
 
         // Verifica se a mensagem é um comando de autenticação

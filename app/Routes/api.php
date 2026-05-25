@@ -6,11 +6,14 @@ use App\Controllers\ChatController;
 use App\Controllers\DocumentController;
 use App\Helpers\Response;
 
+$documentController = new DocumentController();
+$chatController = new ChatController();
+
 return [
     ['GET', '/api/health', fn () => Response::success('API online.', ['status' => 'ok'])],
-    ['POST', '/api/documents/upload', [new DocumentController(), 'upload']],
-    ['GET', '/api/documents', [new DocumentController(), 'index']],
-    ['GET', '/api/documents/{id}', [new DocumentController(), 'show']],
-    ['DELETE', '/api/documents/{id}', [new DocumentController(), 'delete']],
-    ['POST', '/api/chat', [new ChatController(), 'chat']],
+    ['POST', '/api/documents/upload', [$documentController, 'upload']],
+    ['GET', '/api/documents', [$documentController, 'index']],
+    ['GET', '/api/documents/{id}', [$documentController, 'show']],
+    ['DELETE', '/api/documents/{id}', [$documentController, 'delete']],
+    ['POST', '/api/chat', [$chatController, 'chat']],
 ];
