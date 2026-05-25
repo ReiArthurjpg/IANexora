@@ -364,6 +364,62 @@ class ChatController
         );
 
 
+        // Detect when user asks explanation/flow of the page instead of chat form
+        $isAskingHowPageWorks = preg_match('/(como\s+funciona|me\s+explica|explicar|passo\s+a\s+passo|onde\s+fica|qual\s+o\s+caminho).*(p[aá]gina|pagina|tela|site|bot[ãa]o)/iu', $msg);
+
+        if ($isAskingHowPageWorks) {
+            $asksLoginPage = preg_match('/(login|entrar|acessar)/iu', $msg);
+            $asksSignupPage = preg_match('/(cadastro|cadastrar|registrar|criar\s+conta)/iu', $msg);
+            $asksForgotPage = preg_match('/(esqueci|recuperar|redefinir|senha)/iu', $msg);
+
+            if ($asksLoginPage || $aiOfferedLoginChat) {
+                return [
+                    'answer' => "Claro! 😊 Funciona assim pela página padrão:
+
+"
+                        . "1. Acesse a tela principal da plataforma Nexora BJJ.
+"
+                        . "2. Clique no botão **Entrar** no topo da página.
+"
+                        . "3. Você será levado para **/guest/login**.
+"
+                        . "4. Preencha **e-mail** e **senha** e clique em **Entrar**.
+
+"
+                        . "Se quiser, também posso abrir o formulário de login aqui no chat.",
+                    'action' => 'page_redirect_guide',
+                ];
+            }
+
+            if ($asksSignupPage || $aiOfferedSignupChat) {
+                return [
+                    'answer' => "Claro! 😊 Pelo fluxo da página padrão:
+
+"
+                        . "1. Acesse **/guest/login/signup**.
+"
+                        . "2. Preencha Nome, E-mail, Academia, Senha e Confirmação.
+"
+                        . "3. Clique em **Cadastrar** para criar sua conta.",
+                    'action' => 'page_redirect_guide',
+                ];
+            }
+
+            if ($asksForgotPage || $aiOfferedForgotChat) {
+                return [
+                    'answer' => "Claro! 😊 Para recuperar senha pela página:
+
+"
+                        . "1. Acesse **/guest/forgot-password**.
+"
+                        . "2. Informe seu e-mail.
+"
+                        . "3. Envie o link e finalize a redefinição pelo e-mail.",
+                    'action' => 'page_redirect_guide',
+                ];
+            }
+        }
+
         // Detect explicit user intent switches regardless of previous offers
         $userWantsSignup = preg_match('/\b(cadastro|registrar|cadastrar|criar conta|registro)\b.*\b(aqui|chat|por aqui|agora|online)\b/iu', $msg);
         $userWantsLogin = preg_match('/\b(login|entrar|acessar conta)\b/iu', $msg);
